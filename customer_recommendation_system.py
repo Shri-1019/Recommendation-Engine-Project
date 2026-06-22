@@ -13,39 +13,24 @@ customer_master = pd.read_excel(
 )
 
 # ==================================
-# Recommendation Map
+# Customer Purchase History
 # ==================================
 
-recommendation_map = {
+customer_products = (
+    df.groupby("Customer_ID")["Product"]
+    .apply(set)
+    .to_dict()
+)
 
-    "Gaming Laptop": [
-        "Wireless Mouse",
-        "Laptop Bag",
-        "USB Hub"
-    ],
+# ==================================
+# Product Customers
+# ==================================
 
-    "Wireless Mouse": [
-        "Mouse Pad"
-    ],
-
-    "Samsung TV": [
-        "Soundbar",
-        "Wall Mount"
-    ],
-
-    "Soundbar": [
-        "Extended Warranty"
-    ],
-
-    "Refrigerator": [
-        "Microwave",
-        "Extended Warranty"
-    ],
-
-    "Microwave": [
-        "Dining Table"
-    ]
-}
+product_customers = (
+    df.groupby("Product")["Customer_ID"]
+    .apply(set)
+    .to_dict()
+)
 
 # ==================================
 # Discount Rules
@@ -53,12 +38,59 @@ recommendation_map = {
 
 discounts = {
 
-    "Premium": 5,
-    "Gold": 8,
-    "Silver": 10,
-    "Bronze": 15
+    "Premium": 15,
+    "Gold": 10,
+    "Silver": 5,
+    "Bronze": 3
 
 }
+
+# ==================================
+# Recommendation Function
+# ==================================
+
+def next_best_product(customer_id):
+
+    if customer_id not in customer_products:
+        return pd.DataFrame()
+
+    purchased = customer_products[customer_id]
+
+    recommendations = {}
+
+    for product in purchased:
+
+        similar_customers = product_customers[product]
+
+        similar_customer_products = df[
+            df["Customer_ID"].isin(similar_customers)
+        ]["Product"]
+
+        for rec_product in similar_customer_products:
+
+            if rec_product not in purchased:
+
+                recommendations[rec_product] = (
+                    recommendations.get(rec_product, 0) + 1
+                )
+
+    if len(recommendations) == 0:
+        return pd.DataFrame()
+
+    recommendations = (
+        pd.DataFrame(
+            recommendations.items(),
+            columns=["Product", "Score"]
+        )
+        .sort_values(
+            by="Score",
+            ascending=False
+        )
+        .head(10)
+    )
+
+    return recommendations
+
 
 # ==================================
 # Main Loop
@@ -70,24 +102,23 @@ while True:
         "\nEnter Customer ID (or type END to exit): "
     ).strip()
 
-    # Exit System
+    # Exit
     if customer_id.upper() == "END":
 
         print("\nSystem Closed Successfully")
         break
 
-    # Find Customer
+    # Customer Validation
     customer = customer_master[
         customer_master["Customer_ID"] == customer_id
     ]
 
-    # Customer Not Found
     if customer.empty:
 
         print("\nCustomer Not Found")
         continue
 
-    # Customer Segment
+    # Customer Details
     segment = customer.iloc[0]["Segment"]
 
     total_spend = customer.iloc[0]["Total_Spend"]
@@ -96,41 +127,28 @@ while True:
 
     transaction_count = customer.iloc[0]["Transaction_Count"]
 
-    # Purchase History
     purchased_products = list(
-        df[
-            df["Customer_ID"] == customer_id
-        ]["Product"].unique()
+        customer_products.get(customer_id, [])
     )
 
-    # Recommendation Logic
-    recommendations = []
+    # ==================================
+    # Recommendation
+    # ==================================
 
-    for product in purchased_products:
-
-        if product in recommendation_map:
-
-            for item in recommendation_map[product]:
-
-                if item not in purchased_products:
-
-                    recommendations.append(item)
-
-    recommendations = list(
-        set(recommendations)
+    recommendations = next_best_product(
+        customer_id
     )
 
-    # Discount
     discount = discounts.get(
         segment,
-        10
+        5
     )
 
     # ==================================
     # Output
     # ==================================
 
-    print("\n" + "=" * 50)
+    print("\n" + "=" * 60)
 
     print(
         f"\nCustomer ID : {customer_id}"
@@ -162,19 +180,20 @@ while True:
 
     print("\nRecommended Products:")
 
-    if recommendations:
-
-        for product in recommendations:
-
-            print(
-                f"  - {product}"
-            )
-
-    else:
+    if recommendations.empty:
 
         print(
             "  No recommendations available"
         )
+
+    else:
+
+        for _, row in recommendations.iterrows():
+
+            print(
+                f"  - {row['Product']} "
+                f"(Score: {row['Score']})"
+            )
 
     print(
         f"\nSuggested Discount : {discount}%"
@@ -182,17 +201,23 @@ while True:
 
     print("\nSample Marketing Message:\n")
 
-    if recommendations:
+    if not recommendations.empty:
+
+        top_product = recommendations.iloc[0]["Product"]
+
+        top_score = recommendations.iloc[0]["Score"]
 
         print(
             f"Dear Customer,\n"
-            f"\nBased on your previous purchases, "
-            f"we believe you may be interested in "
-            f"{recommendations[0]}.\n"
+            f"\nBased on your purchase history and "
+            f"customers with similar buying patterns, "
+            f"we recommend '{top_product}'.\n"
+            f"\nRecommendation Confidence Score: "
+            f"{top_score}\n"
             f"\nAs a valued {segment} customer, "
-            f"we are pleased to offer you "
-            f"{discount}% OFF on this product.\n"
+            f"you are eligible for an exclusive "
+            f"{discount}% discount.\n"
             f"\nThank you for shopping with us."
         )
 
-    print("\n" + "=" * 50)
+    print("\n" + "=" * 60)
