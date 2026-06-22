@@ -1,5 +1,4 @@
 import pandas as pd
-import random
 
 # ==================================
 # Load Data
@@ -51,13 +50,11 @@ for customer_id, products in customer_products.items():
 
     total_customers += 1
 
-    # Hide one purchased product
-    hidden_product = random.choice(products)
+    # Hide latest purchased product
 
-    visible_products = [
-        p for p in products
-        if p != hidden_product
-    ]
+    hidden_product = products[-1]
+
+    visible_products = products[:-1]
 
     recommendations = {}
 
