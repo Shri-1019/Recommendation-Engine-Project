@@ -145,6 +145,35 @@ recommended_products = [
     for product, score
     in top_recommendations
 ]
+# ==================================
+# Find Hidden Product Rank
+# ==================================
+
+all_recommendations = sorted(
+    recommendations.items(),
+    key=lambda x: x[1],
+    reverse=True
+)
+
+hidden_rank = None
+
+for rank, (product, score) in enumerate(
+    all_recommendations,
+    start=1
+):
+
+    if product == hidden_product:
+
+        hidden_rank = rank
+        break
+
+# Total Products Recommended
+
+total_products = len(all_recommendations)
+
+# ==================================
+# Result
+# ==================================
 
 print("\nResult:")
 
@@ -154,10 +183,44 @@ if hidden_product in recommended_products:
         f"SUCCESS - Model predicted '{hidden_product}'"
     )
 
+    print(
+        f"Rank of Hidden Product: "
+        f"{hidden_rank} out of {total_products}"
+    )
+
 else:
 
     print(
         f"FAIL - Model missed '{hidden_product}'"
+    )
+
+    if hidden_rank:
+
+        print(
+            f"Hidden Product Rank: "
+            f"{hidden_rank} out of {total_products}"
+        )
+
+    else:
+
+        print(
+            "Hidden Product was not recommended at all."
+        )
+
+# ==================================
+# Recommendation Quality
+# ==================================
+
+if hidden_rank:
+
+    percentile = (
+        (total_products - hidden_rank + 1)
+        / total_products
+    ) * 100
+
+    print(
+        f"Recommendation Quality: "
+        f"Top {percentile:.1f}%"
     )
 
 print("\n" + "=" * 60)
